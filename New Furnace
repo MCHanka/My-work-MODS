@@ -1,0 +1,1092 @@
+Development new Furnace MOD By MCHanka
+ 
+ 
+ 
+ 
+MOD_ FILE CONTENTS:
+ 
+ 
+package net.minecraft.src;
+ 
+import java.util.Random;
+ 
+public class mod_tutorial extends BaseMod
+{
+       
+        //Textures
+       
+        public static int CFrontIdle;
+        public static int CFrontActive;
+        public static int CSide;
+       
+        //Blocks
+       
+        //Very Complex Blocks
+       
+        public static final Block CIdle = (new BlockCompressor(207, false).setHardness(3.0F).setResistance(1F).setStepSound(Block.soundStoneFootstep).setBlockName("CIdle")).setRequiresSelfNotify();
+        public static final Block CActive = (new BlockCompressor(208,true).setHardness(3.0F).setResistance(1F).setStepSound(Block.soundStoneFootstep).setBlockName("CActive")).setRequiresSelfNotify();
+       
+        //Items
+ 
+        public void load()
+        {
+               
+                CFrontIdle = ModLoader.addOverride("/terrain.png", "/Blocks/compressor_front.png");
+                CFrontActive = ModLoader.addOverride("/terrain.png", "/Blocks/compressor_front_active.png");
+                CSide = ModLoader.addOverride("/terrain.png", "/Blocks/compressor_sides.png");
+       
+                //Registering
+ 
+                ModLoader.registerBlock(CIdle);
+                ModLoader.registerBlock(CActive);
+               
+                //Adding names
+               
+                ModLoader.addName(CIdle, "Compressor");
+                ModLoader.addName(CActive, "Compressor");
+               
+                //Tile Entity
+               
+                ModLoader.registerTileEntity(TileEntityCompressor.class, "compressor");
+               
+                //Crafting Recipes
+               
+                //Smelting Recipes
+               
+                //Shapeless Recipes
+               
+               
+        }
+ 
+       
+       
+        public String getVersion()
+        {
+                return "1.2.5";
+        }
+}
+ 
+BLOCKCOMPRESSOR.JAVA
+ 
+package net.minecraft.src;
+ 
+import java.util.Random;
+ 
+public class BlockCompressor extends BlockContainer
+{
+    /**
+     * Is the random generator used by furnace to drop the inventory contents in random directions.
+     */
+    private Random compressorRand;
+ 
+    /** True if this is an active furnace, false if idle */
+    private final boolean isCompressorActive;
+ 
+    /**
+     * This flag is used to prevent the furnace inventory to be dropped upon block removal, is used internally when the
+     * furnace block changes from idle to active and vice-versa.
+     */
+    private static boolean keepcompressorInventory = false;
+ 
+    protected BlockCompressor(int par1, boolean par2)
+    {
+        super(par1, Material.rock);
+        compressorRand = new Random();
+        isCompressorActive = par2;
+       
+    }
+ 
+    /**
+     * Returns the ID of the items to drop on destruction.
+     */
+    public int idDropped(int par1, Random par2Random, int par3)
+    {
+        return mod_tutorial.CIdle.blockID;
+    }
+ 
+    /**
+     * Called whenever the block is added into the world. Args: world, x, y, z
+     */
+    public void onBlockAdded(World par1World, int par2, int par3, int par4)
+    {
+        super.onBlockAdded(par1World, par2, par3, par4);
+        setDefaultDirection(par1World, par2, par3, par4);
+    }
+ 
+    /**
+     * set a blocks direction
+     */
+    private void setDefaultDirection(World par1World, int par2, int par3, int par4)
+    {
+        if (par1World.isRemote)
+        {
+            return;
+        }
+ 
+        int i = par1World.getBlockId(par2, par3, par4 - 1);
+        int j = par1World.getBlockId(par2, par3, par4 + 1);
+        int k = par1World.getBlockId(par2 - 1, par3, par4);
+        int l = par1World.getBlockId(par2 + 1, par3, par4);
+        byte byte0 = 3;
+ 
+        if (Block.opaqueCubeLookup[i] && !Block.opaqueCubeLookup[j])
+        {
+            byte0 = 3;
+        }
+ 
+        if (Block.opaqueCubeLookup[j] && !Block.opaqueCubeLookup[i])
+        {
+            byte0 = 2;
+        }
+ 
+        if (Block.opaqueCubeLookup[k] && !Block.opaqueCubeLookup[l])
+        {
+            byte0 = 5;
+        }
+ 
+        if (Block.opaqueCubeLookup[l] && !Block.opaqueCubeLookup[k])
+        {
+            byte0 = 4;
+        }
+ 
+        par1World.setBlockMetadataWithNotify(par2, par3, par4, byte0);
+    }
+ 
+    /**
+     * Retrieves the block texture to use based on the display side. Args: iBlockAccess, x, y, z, side
+     */
+    public int getBlockTexture(IBlockAccess par1IBlockAccess, int par2, int par3, int par4, int par5)
+    {
+        if (par5 == 1)
+        {
+            return mod_tutorial.CSide;
+        }
+ 
+        if (par5 == 0)
+        {
+            return mod_tutorial.CSide;
+        }
+ 
+        int i = par1IBlockAccess.getBlockMetadata(par2, par3, par4);
+ 
+        if (par5 != i)
+        {
+            return mod_tutorial.CSide;
+        }
+ 
+        if (isCompressorActive)
+        {
+            return mod_tutorial.CFrontActive;
+        }
+        else
+        {
+            return mod_tutorial.CFrontIdle;
+        }
+    }
+ 
+    /**
+     * A randomly called display update to be able to add particles or other items for display
+     */
+    public void randomDisplayTick(World par1World, int par2, int par3, int par4, Random par5Random)
+    {
+        if (!isCompressorActive)
+        {
+            return;
+        }
+ 
+        int i = par1World.getBlockMetadata(par2, par3, par4);
+        float f = (float)par2 + 0.5F;
+        float f1 = (float)par3 + 0.0F + (par5Random.nextFloat() * 6F) / 16F;
+        float f2 = (float)par4 + 0.5F;
+        float f3 = 0.52F;
+        float f4 = par5Random.nextFloat() * 0.6F - 0.3F;
+ 
+        if (i == 4)
+        {
+            par1World.spawnParticle("smoke", f - f3, f1, f2 + f4, 0.0D, 0.0D, 0.0D);
+            par1World.spawnParticle("flame", f - f3, f1, f2 + f4, 0.0D, 0.0D, 0.0D);
+        }
+        else if (i == 5)
+        {
+            par1World.spawnParticle("smoke", f + f3, f1, f2 + f4, 0.0D, 0.0D, 0.0D);
+            par1World.spawnParticle("flame", f + f3, f1, f2 + f4, 0.0D, 0.0D, 0.0D);
+        }
+        else if (i == 2)
+        {
+            par1World.spawnParticle("smoke", f + f4, f1, f2 - f3, 0.0D, 0.0D, 0.0D);
+            par1World.spawnParticle("flame", f + f4, f1, f2 - f3, 0.0D, 0.0D, 0.0D);
+        }
+        else if (i == 3)
+        {
+            par1World.spawnParticle("smoke", f + f4, f1, f2 + f3, 0.0D, 0.0D, 0.0D);
+            par1World.spawnParticle("flame", f + f4, f1, f2 + f3, 0.0D, 0.0D, 0.0D);
+        }
+    }
+ 
+    /**
+     * Returns the block texture based on the side being looked at.  Args: side
+     */
+    public int getBlockTextureFromSide(int par1)
+    {
+        if (par1 == 1)
+        {
+            return mod_tutorial.CSide;
+        }
+ 
+        if (par1 == 0)
+        {
+            return mod_tutorial.CSide;
+        }
+ 
+        if (par1 == 3)
+        {
+            return mod_tutorial.CFrontIdle;
+        }
+        else
+        {
+            return mod_tutorial.CSide;
+        }
+    }
+ 
+    /**
+     * Called upon block activation (left or right click on the block.). The three integers represent x,y,z of the
+     * block.
+     */
+    public boolean blockActivated(World par1World, int par2, int par3, int par4, EntityPlayer par5EntityPlayer)
+    {
+        if (par1World.isRemote)
+        {
+            return true;
+        }
+ 
+        TileEntityCompressor tileentitycompressor = (TileEntityCompressor)par1World.getBlockTileEntity(par2, par3, par4);
+ 
+        if (tileentitycompressor != null)
+        {
+                ModLoader.openGUI(par5EntityPlayer, new GuiCompressor(par5EntityPlayer.inventory, tileentitycompressor));
+        }
+ 
+        return true;
+    }
+ 
+    /**
+     * Update which block ID the furnace is using depending on whether or not it is burning
+     */
+    public static void updateCompressorBlockState(boolean par0, World par1World, int par2, int par3, int par4)
+    {
+        int i = par1World.getBlockMetadata(par2, par3, par4);
+        TileEntity tileentity = par1World.getBlockTileEntity(par2, par3, par4);
+        keepcompressorInventory = true;
+ 
+        if (par0)
+        {
+            par1World.setBlockWithNotify(par2, par3, par4, mod_tutorial.CActive.blockID);
+        }
+        else
+        {
+            par1World.setBlockWithNotify(par2, par3, par4, mod_tutorial.CIdle.blockID);
+        }
+ 
+        keepcompressorInventory = false;
+        par1World.setBlockMetadataWithNotify(par2, par3, par4, i);
+ 
+        if (tileentity != null)
+        {
+            tileentity.validate();
+            par1World.setBlockTileEntity(par2, par3, par4, tileentity);
+        }
+    }
+ 
+    /**
+     * Returns the TileEntity used by this block.
+     */
+    public TileEntity getBlockEntity()
+    {
+        return new TileEntityCompressor();
+    }
+ 
+    /**
+     * Called when the block is placed in the world.
+     */
+    public void onBlockPlacedBy(World par1World, int par2, int par3, int par4, EntityLiving par5EntityLiving)
+    {
+        int i = MathHelper.floor_double((double)((par5EntityLiving.rotationYaw * 4F) / 360F) + 0.5D) & 3;
+ 
+        if (i == 0)
+        {
+            par1World.setBlockMetadataWithNotify(par2, par3, par4, 2);
+        }
+ 
+        if (i == 1)
+        {
+            par1World.setBlockMetadataWithNotify(par2, par3, par4, 5);
+        }
+ 
+        if (i == 2)
+        {
+            par1World.setBlockMetadataWithNotify(par2, par3, par4, 3);
+        }
+ 
+        if (i == 3)
+        {
+            par1World.setBlockMetadataWithNotify(par2, par3, par4, 4);
+        }
+    }
+ 
+    /**
+     * Called whenever the block is removed.
+     */
+    public void onBlockRemoval(World par1World, int par2, int par3, int par4)
+    {
+        if (!keepcompressorInventory)
+        {
+            TileEntityCompressor tileentitycompressor = (TileEntityCompressor)par1World.getBlockTileEntity(par2, par3, par4);
+ 
+            if (tileentitycompressor != null)
+            {
+                label0:
+ 
+                for (int i = 0; i < tileentitycompressor.getSizeInventory(); i++)
+                {
+                    ItemStack itemstack = tileentitycompressor.getStackInSlot(i);
+ 
+                    if (itemstack == null)
+                    {
+                        continue;
+                    }
+ 
+                    float f = compressorRand.nextFloat() * 0.8F + 0.1F;
+                    float f1 = compressorRand.nextFloat() * 0.8F + 0.1F;
+                    float f2 = compressorRand.nextFloat() * 0.8F + 0.1F;
+ 
+                    do
+                    {
+                        if (itemstack.stackSize <= 0)
+                        {
+                            continue label0;
+                        }
+ 
+                        int j = compressorRand.nextInt(21) + 10;
+ 
+                        if (j > itemstack.stackSize)
+                        {
+                            j = itemstack.stackSize;
+                        }
+ 
+                        itemstack.stackSize -= j;
+                        EntityItem entityitem = new EntityItem(par1World, (float)par2 + f, (float)par3 + f1, (float)par4 + f2, new ItemStack(itemstack.itemID, j, itemstack.getItemDamage()));
+ 
+                        if (itemstack.hasTagCompound())
+                        {
+                            entityitem.item.setTagCompound((NBTTagCompound)itemstack.getTagCompound().copy());
+                        }
+ 
+                        float f3 = 0.05F;
+                        entityitem.motionX = (float)compressorRand.nextGaussian() * f3;
+                        entityitem.motionY = (float)compressorRand.nextGaussian() * f3 + 0.2F;
+                        entityitem.motionZ = (float)compressorRand.nextGaussian() * f3;
+                        par1World.spawnEntityInWorld(entityitem);
+                    }
+                    while (true);
+                }
+            }
+        }
+ 
+        super.onBlockRemoval(par1World, par2, par3, par4);
+    }
+}
+ 
+ 
+CONTAINERCOMPRESSOR.JAVA
+ 
+package net.minecraft.src;
+ 
+import java.util.List;
+ 
+public class ContainerCompressor extends Container
+{
+    private TileEntityCompressor compressor;
+    private int lastCompressorCookTime;
+    private int lastCompressorBurnTime;
+    private int lastCompressorItemBurnTime;
+ 
+    public ContainerCompressor(InventoryPlayer par1InventoryPlayer, TileEntityCompressor par2TileEntityCompressor)
+    {
+        lastCompressorCookTime = 0;
+        lastCompressorBurnTime = 0;
+        lastCompressorItemBurnTime = 0;
+        compressor = par2TileEntityCompressor;
+        addSlot(new Slot(par2TileEntityCompressor, 0, 56, 17));
+        addSlot(new Slot(par2TileEntityCompressor, 1, 56, 53));
+        addSlot(new SlotCompressor(par1InventoryPlayer.player, par2TileEntityCompressor, 2, 116, 35));
+ 
+        for (int i = 0; i < 3; i++)
+        {
+            for (int k = 0; k < 9; k++)
+            {
+                addSlot(new Slot(par1InventoryPlayer, k + i * 9 + 9, 8 + k * 18, 84 + i * 18));
+            }
+        }
+ 
+        for (int j = 0; j < 9; j++)
+        {
+            addSlot(new Slot(par1InventoryPlayer, j, 8 + j * 18, 142));
+        }
+    }
+ 
+    /**
+     * Updates crafting matrix; called from onCraftMatrixChanged. Args: none
+     */
+    public void updateCraftingResults()
+    {
+        super.updateCraftingResults();
+ 
+        for (int i = 0; i < crafters.size(); i++)
+        {
+            ICrafting icrafting = (ICrafting)crafters.get(i);
+ 
+            if (lastCompressorCookTime != compressor.compressorCookTime)
+            {
+                icrafting.updateCraftingInventoryInfo(this, 0, compressor.compressorCookTime);
+            }
+ 
+            if (lastCompressorBurnTime != compressor.compressorBurnTime)
+            {
+                icrafting.updateCraftingInventoryInfo(this, 1, compressor.compressorBurnTime);
+            }
+ 
+            if (lastCompressorItemBurnTime != compressor.currentItemBurnTime)
+            {
+                icrafting.updateCraftingInventoryInfo(this, 2, compressor.currentItemBurnTime);
+            }
+        }
+ 
+        lastCompressorCookTime = compressor.compressorCookTime;
+        lastCompressorBurnTime = compressor.compressorBurnTime;
+        lastCompressorItemBurnTime = compressor.currentItemBurnTime;
+    }
+ 
+    public void updateProgressBar(int par1, int par2)
+    {
+        if (par1 == 0)
+        {
+            compressor.compressorCookTime = par2;
+        }
+ 
+        if (par1 == 1)
+        {
+            compressor.compressorBurnTime = par2;
+        }
+ 
+        if (par1 == 2)
+        {
+            compressor.currentItemBurnTime = par2;
+        }
+    }
+ 
+    public boolean canInteractWith(EntityPlayer par1EntityPlayer)
+    {
+        return compressor.isUseableByPlayer(par1EntityPlayer);
+    }
+ 
+    /**
+     * Called to transfer a stack from one inventory to the other eg. when shift clicking.
+     */
+    public ItemStack transferStackInSlot(int par1)
+    {
+        ItemStack itemstack = null;
+        Slot slot = (Slot)inventorySlots.get(par1);
+ 
+        if (slot != null && slot.getHasStack())
+        {
+            ItemStack itemstack1 = slot.getStack();
+            itemstack = itemstack1.copy();
+ 
+            if (par1 == 2)
+            {
+                if (!mergeItemStack(itemstack1, 3, 39, true))
+                {
+                    return null;
+                }
+ 
+                slot.func_48433_a(itemstack1, itemstack);
+            }
+            else if (par1 == 1 || par1 == 0)
+            {
+                if (!mergeItemStack(itemstack1, 3, 39, false))
+                {
+                    return null;
+                }
+            }
+            else if (FurnaceRecipes.smelting().getSmeltingResult(itemstack1.getItem().shiftedIndex) != null)
+            {
+                if (!mergeItemStack(itemstack1, 0, 1, false))
+                {
+                    return null;
+                }
+            }
+            else if (TileEntityCompressor.func_52005_b(itemstack1))
+            {
+                if (!mergeItemStack(itemstack1, 1, 2, false))
+                {
+                    return null;
+                }
+            }
+            else if (par1 >= 3 && par1 < 30)
+            {
+                if (!mergeItemStack(itemstack1, 30, 39, false))
+                {
+                    return null;
+                }
+            }
+            else if (par1 >= 30 && par1 < 39 && !mergeItemStack(itemstack1, 3, 30, false))
+            {
+                return null;
+            }
+ 
+            if (itemstack1.stackSize == 0)
+            {
+                slot.putStack(null);
+            }
+            else
+            {
+                slot.onSlotChanged();
+            }
+ 
+            if (itemstack1.stackSize != itemstack.stackSize)
+            {
+                slot.onPickupFromSlot(itemstack1);
+            }
+            else
+            {
+                return null;
+            }
+        }
+ 
+        return itemstack;
+    }
+}
+ 
+ 
+GUICOMPRESSOR.JAVA
+ 
+package net.minecraft.src;
+ 
+import net.minecraft.client.Minecraft;
+import org.lwjgl.opengl.GL11;
+ 
+public class GuiCompressor extends GuiContainer
+{
+    private TileEntityCompressor compressorInventory;
+ 
+    public GuiCompressor(InventoryPlayer par1InventoryPlayer, TileEntityCompressor par2TileEntityCompressor)
+    {
+        super(new ContainerCompressor(par1InventoryPlayer, par2TileEntityCompressor));
+        compressorInventory = par2TileEntityCompressor;
+    }
+ 
+    /**
+     * Draw the foreground layer for the GuiContainer (everythin in front of the items)
+     */
+    protected void drawGuiContainerForegroundLayer()
+    {
+        fontRenderer.drawString(StatCollector.translateToLocal("container.inventory"), 8, (ySize - 96) + 2, 0xffffff);
+    }
+ 
+    /**
+     * Draw the background layer for the GuiContainer (everything behind the items)
+     */
+    protected void drawGuiContainerBackgroundLayer(float par1, int par2, int par3)
+    {
+        int i = mc.renderEngine.getTexture("/gui/compressor.png");
+        GL11.glColor4f(1.0F, 1.0F, 1.0F, 1.0F);
+        mc.renderEngine.bindTexture(i);
+        int j = (width - xSize) / 2;
+        int k = (height - ySize) / 2;
+        drawTexturedModalRect(j, k, 0, 0, xSize, ySize);
+ 
+        if (compressorInventory.isBurning())
+        {
+            int l = compressorInventory.getBurnTimeRemainingScaled(12);
+            drawTexturedModalRect(j + 56, (k + 36 + 12) - l, 176, 12 - l, 14, l + 2);
+        }
+ 
+        int i1 = compressorInventory.getCookProgressScaled(24);
+        drawTexturedModalRect(j + 79, k + 34, 176, 14, i1 + 1, 16);
+    }
+}
+ 
+SLOTCOMPRESSOR.JAVA
+ 
+package net.minecraft.src;
+ 
+public class SlotCompressor extends Slot
+{
+    /** The player that is using the GUI where this slot resides. */
+    private EntityPlayer thePlayer;
+    private int field_48437_f;
+ 
+    public SlotCompressor(EntityPlayer par1EntityPlayer, IInventory par2IInventory, int par3, int par4, int par5)
+    {
+        super(par2IInventory, par3, par4, par5);
+        thePlayer = par1EntityPlayer;
+    }
+ 
+    /**
+     * Check if the stack is a valid item for this slot. Always true beside for the armor slots.
+     */
+    public boolean isItemValid(ItemStack par1ItemStack)
+    {
+        return false;
+    }
+ 
+    /**
+     * Decrease the size of the stack in slot (first int arg) by the amount of the second int arg. Returns the new
+     * stack.
+     */
+    public ItemStack decrStackSize(int par1)
+    {
+        if (getHasStack())
+        {
+            field_48437_f += Math.min(par1, getStack().stackSize);
+        }
+ 
+        return super.decrStackSize(par1);
+    }
+ 
+    /**
+     * Called when the player picks up an item from an inventory slot
+     */
+    public void onPickupFromSlot(ItemStack par1ItemStack)
+    {
+        func_48434_c(par1ItemStack);
+        super.onPickupFromSlot(par1ItemStack);
+    }
+ 
+    protected void func_48435_a(ItemStack par1ItemStack, int par2)
+    {
+        field_48437_f += par2;
+        func_48434_c(par1ItemStack);
+    }
+ 
+ 
+}
+ 
+TILEENTITYCOMPRESSOR.JAVA
+ 
+package net.minecraft.src;
+ 
+public class TileEntityCompressor extends TileEntity implements IInventory
+{
+    private ItemStack compressorItemStacks[];
+ 
+    /** The number of ticks that the furnace will keep burning */
+    public int compressorBurnTime;
+ 
+    /**
+     * The number of ticks that a fresh copy of the currently-burning item would keep the furnace burning for
+     */
+    public int currentItemBurnTime;
+ 
+    /** The number of ticks that the current item has been cooking for */
+    public int compressorCookTime;
+ 
+    public TileEntityCompressor()
+    {
+        compressorItemStacks = new ItemStack[3];
+        compressorBurnTime = 0;
+        currentItemBurnTime = 0;
+        compressorCookTime = 0;
+    }
+ 
+    /**
+     * Returns the number of slots in the inventory.
+     */
+    public int getSizeInventory()
+    {
+        return compressorItemStacks.length;
+    }
+ 
+    /**
+     * Returns the stack in slot i
+     */
+    public ItemStack getStackInSlot(int par1)
+    {
+        return compressorItemStacks[par1];
+    }
+ 
+    /**
+     * Decrease the size of the stack in slot (first int arg) by the amount of the second int arg. Returns the new
+     * stack.
+     */
+    public ItemStack decrStackSize(int par1, int par2)
+    {
+        if (compressorItemStacks[par1] != null)
+        {
+            if (compressorItemStacks[par1].stackSize <= par2)
+            {
+                ItemStack itemstack = compressorItemStacks[par1];
+                compressorItemStacks[par1] = null;
+                return itemstack;
+            }
+ 
+            ItemStack itemstack1 = compressorItemStacks[par1].splitStack(par2);
+ 
+            if (compressorItemStacks[par1].stackSize == 0)
+            {
+                compressorItemStacks[par1] = null;
+            }
+ 
+            return itemstack1;
+        }
+        else
+        {
+            return null;
+        }
+    }
+ 
+    /**
+     * When some containers are closed they call this on each slot, then drop whatever it returns as an EntityItem -
+     * like when you close a workbench GUI.
+     */
+    public ItemStack getStackInSlotOnClosing(int par1)
+    {
+        if (compressorItemStacks[par1] != null)
+        {
+            ItemStack itemstack = compressorItemStacks[par1];
+            compressorItemStacks[par1] = null;
+            return itemstack;
+        }
+        else
+        {
+            return null;
+        }
+    }
+ 
+    /**
+     * Sets the given item stack to the specified slot in the inventory (can be crafting or armor sections).
+     */
+    public void setInventorySlotContents(int par1, ItemStack par2ItemStack)
+    {
+        compressorItemStacks[par1] = par2ItemStack;
+ 
+        if (par2ItemStack != null && par2ItemStack.stackSize > getInventoryStackLimit())
+        {
+            par2ItemStack.stackSize = getInventoryStackLimit();
+        }
+    }
+ 
+    /**
+     * Returns the name of the inventory.
+     */
+    public String getInvName()
+    {
+        return "container.compressor";
+    }
+ 
+    /**
+     * Reads a tile entity from NBT.
+     */
+    public void readFromNBT(NBTTagCompound par1NBTTagCompound)
+    {
+        super.readFromNBT(par1NBTTagCompound);
+        NBTTagList nbttaglist = par1NBTTagCompound.getTagList("Items");
+        compressorItemStacks = new ItemStack[getSizeInventory()];
+ 
+        for (int i = 0; i < nbttaglist.tagCount(); i++)
+        {
+            NBTTagCompound nbttagcompound = (NBTTagCompound)nbttaglist.tagAt(i);
+            byte byte0 = nbttagcompound.getByte("Slot");
+ 
+            if (byte0 >= 0 && byte0 < compressorItemStacks.length)
+            {
+                compressorItemStacks[byte0] = ItemStack.loadItemStackFromNBT(nbttagcompound);
+            }
+        }
+ 
+        compressorBurnTime = par1NBTTagCompound.getShort("BurnTime");
+        compressorCookTime = par1NBTTagCompound.getShort("CookTime");
+        currentItemBurnTime = getItemBurnTime(compressorItemStacks[1]);
+    }
+ 
+    /**
+     * Writes a tile entity to NBT.
+     */
+    public void writeToNBT(NBTTagCompound par1NBTTagCompound)
+    {
+        super.writeToNBT(par1NBTTagCompound);
+        par1NBTTagCompound.setShort("BurnTime", (short)compressorBurnTime);
+        par1NBTTagCompound.setShort("CookTime", (short)compressorCookTime);
+        NBTTagList nbttaglist = new NBTTagList();
+ 
+        for (int i = 0; i < compressorItemStacks.length; i++)
+        {
+            if (compressorItemStacks[i] != null)
+            {
+                NBTTagCompound nbttagcompound = new NBTTagCompound();
+                nbttagcompound.setByte("Slot", (byte)i);
+                compressorItemStacks[i].writeToNBT(nbttagcompound);
+                nbttaglist.appendTag(nbttagcompound);
+            }
+        }
+ 
+        par1NBTTagCompound.setTag("Items", nbttaglist);
+    }
+ 
+    /**
+     * Returns the maximum stack size for a inventory slot. Seems to always be 64, possibly will be extended. *Isn't
+     * this more of a set than a get?*
+     */
+    public int getInventoryStackLimit()
+    {
+        return 64;
+    }
+ 
+    /**
+     * Returns an integer between 0 and the passed value representing how close the current item is to being completely
+     * cooked
+     */
+    public int getCookProgressScaled(int par1)
+    {
+        return (compressorCookTime * par1) / 200;
+    }
+ 
+    /**
+     * Returns an integer between 0 and the passed value representing how much burn time is left on the current fuel
+     * item, where 0 means that the item is exhausted and the passed value means that the item is fresh
+     */
+    public int getBurnTimeRemainingScaled(int par1)
+    {
+        if (currentItemBurnTime == 0)
+        {
+            currentItemBurnTime = 200;
+        }
+ 
+        return (compressorBurnTime * par1) / currentItemBurnTime;
+    }
+ 
+    /**
+     * Returns true if the furnace is currently burning
+     */
+    public boolean isBurning()
+    {
+        return compressorBurnTime > 0;
+    }
+ 
+    /**
+     * Allows the entity to update its state. Overridden in most subclasses, e.g. the mob spawner uses this to count
+     * ticks and creates a new spawn inside its implementation.
+     */
+    public void updateEntity()
+    {
+        boolean flag = compressorBurnTime > 0;
+        boolean flag1 = false;
+ 
+        if (compressorBurnTime > 0)
+        {
+                compressorBurnTime--;
+        }
+ 
+        if (!worldObj.isRemote)
+        {
+            if (compressorBurnTime == 0 && canSmelt())
+            {
+                currentItemBurnTime = compressorBurnTime = getItemBurnTime(compressorItemStacks[1]);
+ 
+                if (compressorBurnTime > 0)
+                {
+                    flag1 = true;
+ 
+                    if (compressorItemStacks[1] != null)
+                    {
+                        if (compressorItemStacks[1].getItem().func_46056_k())
+                        {
+                                compressorItemStacks[1] = new ItemStack(compressorItemStacks[1].getItem().setFull3D());
+                        }
+                        else
+                        {
+                                compressorItemStacks[1].stackSize--;
+                        }
+ 
+                        if (compressorItemStacks[1].stackSize == 0)
+                        {
+                                compressorItemStacks[1] = null;
+                        }
+                    }
+                }
+            }
+ 
+            if (isBurning() && canSmelt())
+            {
+                compressorCookTime++;
+ 
+                if (compressorCookTime == 200)
+                {
+                        compressorCookTime = 0;
+                    smeltItem();
+                    flag1 = true;
+                }
+            }
+            else
+            {
+                compressorCookTime = 0;
+            }
+ 
+            if (flag != (compressorBurnTime > 0))
+            {
+                flag1 = true;
+                BlockCompressor.updateCompressorBlockState(compressorBurnTime > 0, worldObj, xCoord, yCoord, zCoord);
+            }
+        }
+ 
+        if (flag1)
+        {
+            onInventoryChanged();
+        }
+    }
+ 
+    /**
+     * Returns true if the furnace can smelt an item, i.e. has a source item, destination stack isn't full, etc.
+     */
+    private boolean canSmelt()
+    {
+        if (compressorItemStacks[0] == null)
+        {
+            return false;
+        }
+ 
+        ItemStack itemstack = FurnaceRecipes.smelting().getSmeltingResult(compressorItemStacks[0].getItem().shiftedIndex);
+ 
+        if (itemstack == null)
+        {
+            return false;
+        }
+ 
+        if (compressorItemStacks[2] == null)
+        {
+            return true;
+        }
+ 
+        if (!compressorItemStacks[2].isItemEqual(itemstack))
+        {
+            return false;
+        }
+ 
+        if (compressorItemStacks[2].stackSize < getInventoryStackLimit() && compressorItemStacks[2].stackSize < compressorItemStacks[2].getMaxStackSize())
+        {
+            return true;
+        }
+ 
+        return compressorItemStacks[2].stackSize < itemstack.getMaxStackSize();
+    }
+ 
+    /**
+     * Turn one item from the furnace source stack into the appropriate smelted item in the furnace result stack
+     */
+    public void smeltItem()
+    {
+        if (!canSmelt())
+        {
+            return;
+        }
+ 
+        ItemStack itemstack = FurnaceRecipes.smelting().getSmeltingResult(compressorItemStacks[0].getItem().shiftedIndex);
+ 
+        if (compressorItemStacks[2] == null)
+        {
+                compressorItemStacks[2] = itemstack.copy();
+        }
+        else if (compressorItemStacks[2].itemID == itemstack.itemID)
+        {
+                compressorItemStacks[2].stackSize += itemstack.stackSize;
+        }
+ 
+        if (compressorItemStacks[0].getItem().func_46056_k())
+        {
+                compressorItemStacks[0] = new ItemStack(compressorItemStacks[0].getItem().setFull3D());
+        }
+        else
+        {
+                compressorItemStacks[0].stackSize--;
+        }
+ 
+        if (compressorItemStacks[0].stackSize <= 0)
+        {
+                compressorItemStacks[0] = null;
+        }
+    }
+ 
+    /**
+     * Returns the number of ticks that the supplied fuel item will keep the furnace burning, or 0 if the item isn't
+     * fuel
+     */
+    public static int getItemBurnTime(ItemStack par1ItemStack)
+    {
+        if (par1ItemStack == null)
+        {
+            return 0;
+        }
+ 
+        int i = par1ItemStack.getItem().shiftedIndex;
+ 
+        if (i < 256 && Block.blocksList[i].blockMaterial == Material.wood)
+        {
+            return 300;
+        }
+ 
+        if (i == Item.stick.shiftedIndex)
+        {
+            return 100;
+        }
+ 
+        if (i == Item.coal.shiftedIndex)
+        {
+            return 1600;
+        }
+ 
+        if (i == Item.bucketLava.shiftedIndex)
+        {
+            return 20000;
+        }
+ 
+        if (i == Block.sapling.blockID)
+        {
+            return 100;
+        }
+ 
+        if (i == Item.blazeRod.shiftedIndex)
+        {
+            return 2400;
+        }
+        else
+        {
+            return ModLoader.addAllFuel(par1ItemStack.itemID, par1ItemStack.getItemDamage());
+        }
+    }
+ 
+    public static boolean func_52005_b(ItemStack par0ItemStack)
+    {
+        return getItemBurnTime(par0ItemStack) > 0;
+    }
+ 
+    /**
+     * Do not make give this method the name canInteractWith because it clashes with Container
+     */
+    public boolean isUseableByPlayer(EntityPlayer par1EntityPlayer)
+    {
+        if (worldObj.getBlockTileEntity(xCoord, yCoord, zCoord) != this)
+        {
+            return false;
+        }
+ 
+        return par1EntityPlayer.getDistanceSq((double)xCoord + 0.5D, (double)yCoord + 0.5D, (double)zCoord + 0.5D) <= 64D;
+    }
+ 
+    public void openChest()
+    {
+    }
+ 
+    public void closeChest()
+    {
+    }
+}
